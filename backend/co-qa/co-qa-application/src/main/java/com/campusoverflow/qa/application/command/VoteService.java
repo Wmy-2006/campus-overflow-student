@@ -14,6 +14,7 @@ import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,12 +49,62 @@ public class VoteService {
 
     @Transactional
     public VoteResult cast(Actor actor, TargetType type, long targetId, int value) {
-        // TODO(S2)：实现 VoteService.cast——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.cast 尚未实现");
+        if (value != -1 && value != 0 && value != 1) {
+            throw new BusinessRuleException("QA-1014", "投票值只能是 -1 / 0 / 1");
+        }
+        Instant now = clock.instant();
+        Target target = resolve(type, targetId);
+        Optional<Vote> existing = votes.find(actor.userId(), type, targetId);
+        int oldValue = existing.map(Vote::value).orElse(0);
+
+        // 幂等：目标值与当前值相同，不产生任何变化。
+        if (value == oldValue) {
+            return new VoteResult(oldValue, 0);
+        }
+
+        int newValue;
+        if (existing.isEmpty()) {
+            // value == 0 且本无投票：无操作。
+            if (value == 0) {
+                return new VoteResult(0, 0);
+            }
+            // 领域工厂负责“不能给自己投票”与取值合法性。
+            Vote vote = Vote.cast(actor.userId(), target.authorId(), type, targetId, value, now);
+            votes.save(vote);
+            newValue = value;
+        } else {
+            Vote vote = existing.get();
+            if (value == 0) {
+                votes.delete(vote);
+            } else {
+                vote.change(value, now);
+                votes.save(vote);
+            }
+            newValue = value;
+        }
+
+        int delta = newValue - oldValue;
+        if (type == TargetType.QUESTION) {
+            questions.adjustScore(targetId, delta);
+        } else {
+            answers.adjustScore(targetId, delta);
+        }
+        events.publish(new VoteCastEvent(EventIds.next(), now, type.name(), targetId, target.authorId(),
+                actor.userId(), target.questionId(), oldValue, newValue));
+        return new VoteResult(newValue, delta);
     }
 
     private Target resolve(TargetType type, long targetId) {
-        // TODO(S2)：实现 VoteService.resolve——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：VoteService.resolve 尚未实现");
+        if (type == TargetType.QUESTION) {
+            Question question = questions.findById(targetId)
+                    .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在或已删除"));
+            return new Target(question.authorId(), targetId);
+        }
+        Answer answer = answers.findById(targetId)
+                .orElseThrow(() -> new NotFoundException("QA-4002", "回答不存在或已删除"));
+        if (answer.isDeleted()) {
+            throw new NotFoundException("QA-4002", "回答不存在或已删除");
+        }
+        return new Target(answer.authorId(), answer.questionId());
     }
 }

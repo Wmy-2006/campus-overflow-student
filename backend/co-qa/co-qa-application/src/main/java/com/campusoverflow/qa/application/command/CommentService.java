@@ -13,6 +13,7 @@ import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
 import java.time.Clock;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +38,30 @@ public class CommentService {
 
     @Transactional
     public long post(Actor actor, PostCommentCommand cmd) {
-        // TODO(S2)：实现 CommentService.post——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：CommentService.post 尚未实现");
+        Instant now = clock.instant();
+        long questionId;
+        if (cmd.targetType() == TargetType.QUESTION) {
+            questionId = cmd.targetId();
+            questions.findById(cmd.targetId())
+                    .filter(q -> !q.isDeleted())
+                    .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在或已删除"));
+        } else {
+            Answer answer = answers.findById(cmd.targetId())
+                    .filter(a -> !a.isDeleted())
+                    .orElseThrow(() -> new NotFoundException("QA-4002", "回答不存在或已删除"));
+            questionId = answer.questionId();
+        }
+
+        Comment parent = null;
+        if (cmd.parentId() != null) {
+            parent = comments.findById(cmd.parentId())
+                    .orElseThrow(() -> new NotFoundException("QA-4003", "被回复的评论不存在"));
+        }
+
+        Comment comment = comments.save(Comment.post(cmd.targetType(), cmd.targetId(), questionId, actor.userId(),
+                parent, cmd.body(), now));
+        events.publish(new CommentPostedEvent(EventIds.next(), now, comment.id(), questionId, actor.userId(),
+                comment.body()));
+        return comment.id();
     }
 }

@@ -17,6 +17,7 @@ import com.campusoverflow.shared.event.EventIds;
 import com.campusoverflow.shared.event.IntegrationEventPublisher;
 import com.campusoverflow.shared.security.Actor;
 import java.time.Clock;
+import java.time.Instant;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,42 +47,90 @@ public class AnswerCommandService {
 
     @Transactional
     public long submit(Actor actor, long questionId, String body) {
-        // TODO(S2)：实现 AnswerCommandService.submit——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.submit 尚未实现");
+        Instant now = clock.instant();
+        Question question = loadQuestion(questionId);
+        Answer answer = answers.save(
+                Answer.submit(question, actor.userId(), MarkdownBody.ofAnswer(body), now));
+        questions.adjustAnswerCount(questionId, 1);
+
+        events.publish(new AnswerSubmittedEvent(EventIds.next(), now, answer.id(), questionId, actor.userId(),
+                question.authorId(), question.title().value()));
+        listCache.invalidateAll();
+        return answer.id();
     }
 
     @Transactional
     public void edit(Actor actor, long answerId, String body) {
-        // TODO(S2)：实现 AnswerCommandService.edit——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.edit 尚未实现");
+        Instant now = clock.instant();
+        Answer answer = loadAnswer(answerId);
+        Question question = loadQuestion(answer.questionId());
+        boolean manages = identity.canManageCourse(actor.userId(), question.courseId());
+
+        answer.edit(actor, manages, MarkdownBody.ofAnswer(body), now);
+        answers.save(answer);
+        listCache.invalidateAll();
     }
 
     @Transactional
     public void delete(Actor actor, long answerId) {
-        // TODO(S2)：实现 AnswerCommandService.delete——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.delete 尚未实现");
+        Instant now = clock.instant();
+        Answer answer = loadAnswer(answerId);
+        Question question = loadQuestion(answer.questionId());
+        boolean manages = identity.canManageCourse(actor.userId(), question.courseId());
+        boolean accepted = question.isAccepted(answerId);
+
+        answer.softDelete(actor, manages, accepted, now);
+        answers.save(answer);
+        questions.adjustAnswerCount(answer.questionId(), -1);
+
+        audit.record("ANSWER_DELETED", actor.userId(), "ANSWER", String.valueOf(answerId), null);
+        events.publish(new ContentDeletedEvent(EventIds.next(), now, "ANSWER", answerId, answer.questionId()));
+        listCache.invalidateAll();
     }
 
     /** 场景 R-2：采纳最佳答案。状态变更与 Outbox 事件在同一事务提交；声誉结算异步进行。 */
     @Transactional
     public void accept(Actor actor, long questionId, long answerId) {
-        // TODO(S2)：实现 AnswerCommandService.accept——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.accept 尚未实现");
+        Instant now = clock.instant();
+        Question question = loadQuestion(questionId);
+        Answer answer = loadAnswer(answerId);
+        boolean manages = identity.canManageCourse(actor.userId(), question.courseId());
+
+        question.accept(answer, actor, manages);
+        questions.save(question);
+
+        audit.record("ANSWER_ACCEPTED", actor.userId(), "ANSWER", String.valueOf(answerId), null);
+        events.publish(new AnswerAcceptedEvent(EventIds.next(), now, answerId, questionId, answer.authorId(),
+                question.authorId(), actor.userId(), question.title().value()));
+        listCache.invalidateAll();
     }
 
     @Transactional
     public void endorse(Actor actor, long answerId) {
-        // TODO(S2)：实现 AnswerCommandService.endorse——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.endorse 尚未实现");
+        Instant now = clock.instant();
+        Answer answer = loadAnswer(answerId);
+        Question question = loadQuestion(answer.questionId());
+        boolean manages = identity.canManageCourse(actor.userId(), question.courseId());
+
+        answer.endorse(actor, manages);
+        answers.save(answer);
+
+        events.publish(new AnswerEndorsedEvent(EventIds.next(), now, answerId, answer.questionId(),
+                answer.authorId(), actor.userId(), question.title().value()));
+        listCache.invalidateAll();
     }
 
     private Question loadQuestion(long id) {
-        // TODO(S2)：实现 AnswerCommandService.loadQuestion——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.loadQuestion 尚未实现");
+        return questions.findById(id)
+                .orElseThrow(() -> new NotFoundException("QA-4001", "问题不存在或已删除"));
     }
 
     private Answer loadAnswer(long id) {
-        // TODO(S2)：实现 AnswerCommandService.loadAnswer——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：AnswerCommandService.loadAnswer 尚未实现");
+        Answer answer = answers.findById(id)
+                .orElseThrow(() -> new NotFoundException("QA-4002", "回答不存在或已删除"));
+        if (answer.isDeleted()) {
+            throw new NotFoundException("QA-4002", "回答不存在或已删除");
+        }
+        return answer;
     }
 }
