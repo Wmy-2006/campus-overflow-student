@@ -1,0 +1,71 @@
+{
+  "info": {
+    "name": "CampusOverflow",
+    "_postman_id": "co-lab4-questions",
+    "description": "CampusOverflow 后端接口集合。包含 Lab4 首个端到端接口 POST /api/v1/questions 的成功用例。\n\n注意：接口依赖登录会话（服务端 Session）。本地 dev 下，若请求未登录，Actor 可能为匿名，发布问题会返回 401/403——需先完成登录并携带会话 Cookie 后再调用。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "POST /api/v1/questions 发布问题（成功用例）",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:8080/api/v1/questions",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "questions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"courseId\": 100,\n  \"title\": \"红黑树插入后如何判断旋转方向？\",\n  \"body\": \"插入节点后出现连续红色节点，什么时候左旋、什么时候右旋？希望有直观解释。\",\n  \"tags\": [\"数据结构\", \"红黑树\"]\n}"
+        },
+        "description": "成功预期：HTTP 201 Created，响应体 {\"id\": <长整型>}。"
+      }
+    },
+    {
+      "name": "GET /api/v1/questions 问题列表",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/v1/questions?page=1&size=20",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "8080",
+          "path": [
+            "api",
+            "v1",
+            "questions"
+          ],
+          "query": [
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "size",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "问题列表（最新优先）。"
+      }
+    }
+  ]
+}
