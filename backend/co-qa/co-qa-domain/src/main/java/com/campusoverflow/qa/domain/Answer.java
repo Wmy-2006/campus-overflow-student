@@ -39,8 +39,8 @@ public class Answer {
     }
 
     public static Answer submit(Question question, long authorId, MarkdownBody body, Instant now) {
-        // TODO(S2)：实现 Answer.submit——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Answer.submit 尚未实现");
+        question.ensureOpenForAnswers();
+        return new Answer(null, question.id(), authorId, body, 0, null, now, now, null, 0L);
     }
 
     public static Answer reconstitute(Long id, long questionId, long authorId, MarkdownBody body, int score,
@@ -50,25 +50,40 @@ public class Answer {
     }
 
     public void edit(Actor actor, boolean actorManagesCourse, MarkdownBody newBody, Instant now) {
-        // TODO(S2)：实现 Answer.edit——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Answer.edit 尚未实现");
+        ensureNotDeleted();
+        if (actor.userId() != authorId && !actorManagesCourse) {
+            throw new ForbiddenException("QA-3003", "只有回答者或课程管理者可以编辑回答");
+        }
+        this.body = newBody;
+        this.updatedAt = now;
     }
 
     /** 教师认证：课程教师/助教为优质回答打上“教师认证”标记。 */
     public void endorse(Actor actor, boolean actorManagesCourse) {
-        // TODO(S2)：实现 Answer.endorse——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Answer.endorse 尚未实现");
+        if (!actorManagesCourse) {
+            throw new ForbiddenException("QA-3002", "只有课程教师/助教可以认证回答");
+        }
+        if (endorsedBy != null) {
+            throw new ConflictException("QA-2010", "回答已被认证，不能重复认证");
+        }
+        this.endorsedBy = actor.userId();
     }
 
     /** 被采纳的回答不能由回答者本人删除（避免“先骗采纳再删除”），课程管理者可删除。 */
     public void softDelete(Actor actor, boolean actorManagesCourse, boolean accepted, Instant now) {
-        // TODO(S2)：实现 Answer.softDelete——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Answer.softDelete 尚未实现");
+        if (!actorManagesCourse && actor.userId() != authorId) {
+            throw new ForbiddenException("QA-3003", "只有回答者或课程管理者可以删除回答");
+        }
+        if (accepted && !actorManagesCourse) {
+            throw new BusinessRuleException("QA-1013", "被采纳的回答不能由回答者本人删除");
+        }
+        this.deletedAt = now;
     }
 
     private void ensureNotDeleted() {
-        // TODO(S2)：实现 Answer.ensureNotDeleted——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S2)：Answer.ensureNotDeleted 尚未实现");
+        if (deletedAt != null) {
+            throw new BusinessRuleException("QA-1019", "已删除的回答不能再编辑");
+        }
     }
 
     public boolean isDeleted() {
