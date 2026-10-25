@@ -1,0 +1,21 @@
+#!/bin/sh
+# 前端位于仓库子目录，git hooks 在仓库根运行。
+# 直接用 node 调用本地包入口（绕开 Windows .cmd shim 的 spawn 问题），
+# 对暂存的 ts/tsx 跑 eslint + prettier，json/css/md 跑 prettier；出错即拦截提交。
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT/frontend"
+BIN="$PWD/node_modules"
+
+STAGED="$(git diff --cached --name-only --diff-filter=ACM | sed 's|^frontend/||')"
+TS_FILES="$(printf '%s\n' "$STAGED" | grep -E '\.(ts|tsx)$' || true)"
+OTHER_FILES="$(printf '%s\n' "$STAGED" | grep -E '\.(json|css|md)$' || true)"
+
+if [ -n "$TS_FILES" ]; then
+  node "$BIN/eslint/bin/eslint.js" --fix $TS_FILES || exit 1
+  node "$BIN/prettier/bin/prettier.cjs" --write $TS_FILES
+fi
+if [ -n "$OTHER_FILES" ]; then
+  node "$BIN/prettier/bin/prettier.cjs" --write $OTHER_FILES
+fi
+
+git add -u
