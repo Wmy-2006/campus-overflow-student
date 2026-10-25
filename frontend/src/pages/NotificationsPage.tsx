@@ -1,27 +1,47 @@
-import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Badge, Button, Card, List, Typography } from 'antd';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
-import type { Notification } from '../types';
+import { useNotifications, useReadAll } from '@/features/notifications/hooks';
+import { formatDate } from '@/shared/format';
 
 export function NotificationsPage() {
-  const [items, setItems] = useState<Notification[]>([]);
-
-  const load = () => api.notifications().then((p) => setItems(p.items)).catch(() => undefined);
-  useEffect(() => { load(); }, []);
+  const notificationsQuery = useNotifications();
+  const readAllMutation = useReadAll();
 
   return (
-    <div className="form-page">
-      <h1>通知</h1>
-      <button onClick={() => api.readAll().then(load)}>全部标记为已读</button>
-      <ul className="plain">
-        {items.map((n) => (
-          <li key={n.id} className={n.read ? 'muted' : ''}>
-            <Link to={n.link.replace(/^\//, '/')}>{n.title}</Link>
-            <span className="muted"> · {new Date(n.createdAt).toLocaleString('zh-CN')}</span>
-          </li>
-        ))}
-        {items.length === 0 && <li className="muted">暂时没有通知。</li>}
-      </ul>
-    </div>
+    <Card
+      title="通知"
+      extra={
+        <Button
+          size="small"
+          loading={readAllMutation.isPending}
+          onClick={() => readAllMutation.mutateAsync()}
+        >
+          全部标记为已读
+        </Button>
+      }
+    >
+      <List
+        loading={notificationsQuery.isLoading}
+        dataSource={notificationsQuery.data?.items ?? []}
+        locale={{ emptyText: <Typography.Text type="secondary">暂时没有通知。</Typography.Text> }}
+        renderItem={(n) => (
+          <List.Item>
+            <List.Item.Meta
+              title={
+                <SpaceWithBadge read={n.read}>
+                  <Link to={n.link}>{n.title}</Link>
+                </SpaceWithBadge>
+              }
+              description={<Typography.Text type="secondary">{formatDate(n.createdAt)}</Typography.Text>}
+            />
+          </List.Item>
+        )}
+      />
+    </Card>
   );
+}
+
+function SpaceWithBadge({ read, children }: { read: boolean; children: ReactNode }) {
+  return read ? <>{children}</> : <Badge dot>{children}</Badge>;
 }
