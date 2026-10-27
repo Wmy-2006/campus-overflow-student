@@ -116,6 +116,26 @@ class AnswerAndVoteServiceTest {
     }
 
     @Test
+    @DisplayName("撤销投票（value=0）回退分数并发布 oldValue=1/newValue=0 的事件")
+    void revokingVoteRevertsScoreAndEmitsEvent() {
+        long answerId = answerService.submit(hong, questionId, "回答正文。");
+        voteService.cast(ming, TargetType.ANSWER, answerId, 1);
+        assertThat(answers.scoreDeltas).containsEntry(answerId, 1);
+
+        voteService.cast(ming, TargetType.ANSWER, answerId, 0);
+        assertThat(answers.scoreDeltas).containsEntry(answerId, 0);
+
+        List<VoteCastEvent> voteEvents = events.ofType(VoteCastEvent.class);
+        VoteCastEvent revoke = voteEvents.get(voteEvents.size() - 1);
+        assertThat(revoke.oldValue()).isEqualTo(1);
+        assertThat(revoke.newValue()).isEqualTo(0);
+        assertThat(revoke.targetAuthorId()).isEqualTo(hong.userId());
+
+        // 本无投票时再撤销：无操作
+        assertThat(voteService.cast(hong, TargetType.ANSWER, answerId, 0).scoreDelta()).isZero();
+    }
+
+    @Test
     @DisplayName("T13 验收：投票给问题调整问题分数并发布事件（questionId 透传给声誉）")
     void voteOnQuestionAdjustsQuestionScoreAndEmitsEvent() {
         assertThat(voteService.cast(hong, TargetType.QUESTION, questionId, 1).scoreDelta()).isEqualTo(1);
