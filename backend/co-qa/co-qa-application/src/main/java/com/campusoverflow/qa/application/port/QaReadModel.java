@@ -16,7 +16,7 @@ import java.util.Optional;
  * 所有查询默认排除已软删除的内容。
  */
 public interface QaReadModel {
-    PageResult<QuestionRow> listQuestions(Long courseId, PageRequest page);
+    PageResult<QuestionRow> listQuestions(Long courseId, String tag, PageRequest page);
 
     Optional<QuestionRow> findQuestion(long questionId);
 

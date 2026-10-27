@@ -43,13 +43,16 @@ public class QuestionQueryService {
         this.cache = cache;
     }
 
-    public PageResult<QuestionSummaryView> list(Long courseId, PageRequest page) {
-        var cached = cache.get(courseId, page);
-        if (cached.isPresent()) {
-            return cached.get();
+    public PageResult<QuestionSummaryView> list(Long courseId, String tag, PageRequest page) {
+        // 按标签筛选时不走缓存（缓存键只含 courseId/page，避免串数据）
+        if (tag == null || tag.isBlank()) {
+            var cached = cache.get(courseId, page);
+            if (cached.isPresent()) {
+                return cached.get();
+            }
         }
 
-        PageResult<QuestionRow> rows = readModel.listQuestions(courseId, page);
+        PageResult<QuestionRow> rows = readModel.listQuestions(courseId, tag, page);
         Set<Long> authorIds = new HashSet<>();
         rows.items().forEach(r -> authorIds.add(r.authorId()));
         Map<Long, UserSummary> users = identity.findUsers(authorIds);
@@ -66,7 +69,9 @@ public class QuestionQueryService {
 
         PageResult<QuestionSummaryView> result =
                 new PageResult<>(items, rows.total(), rows.page(), rows.size());
-        cache.put(courseId, page, result);
+        if (tag == null || tag.isBlank()) {
+            cache.put(courseId, page, result);
+        }
         return result;
     }
 

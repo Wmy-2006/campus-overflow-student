@@ -44,12 +44,13 @@ public class QuestionController {
         this.queries = queries;
     }
 
-    @Operation(summary = "问题列表（最新优先，可按课程过滤）")
+    @Operation(summary = "问题列表（最新优先，可按课程或标签过滤）")
     @GetMapping
     public PageResult<QuestionSummaryView> list(@RequestParam(required = false) Long courseId,
+                                                @RequestParam(required = false) String tag,
                                                 @RequestParam(defaultValue = "1") int page,
                                                 @RequestParam(defaultValue = "20") int size) {
-        return queries.list(courseId, new PageRequest(page, size));
+        return queries.list(courseId, tag, new PageRequest(page, size));
     }
 
     @Operation(summary = "发布问题")
