@@ -9,13 +9,27 @@ public final class BadgePolicy {
     private BadgePolicy() {
     }
 
+    /** 按累计被采纳回答数授予徽章：≥1 初露锋芒，≥10 解惑达人。 */
     public static Set<BadgeType> forAcceptedCount(long acceptedCount) {
-        // TODO(S3)：实现 BadgePolicy.forAcceptedCount——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BadgePolicy.forAcceptedCount 尚未实现");
+        EnumSet<BadgeType> badges = EnumSet.noneOf(BadgeType.class);
+        if (acceptedCount >= 1) {
+            badges.add(BadgeType.FIRST_ACCEPTED);
+        }
+        if (acceptedCount >= 10) {
+            badges.add(BadgeType.HELPER_10);
+        }
+        return badges;
     }
 
+    /** 按累计声誉授予徽章：≥100 小有名气，≥1000 德高望重。 */
     public static Set<BadgeType> forReputation(int reputation) {
-        // TODO(S3)：实现 BadgePolicy.forReputation——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：BadgePolicy.forReputation 尚未实现");
+        EnumSet<BadgeType> badges = EnumSet.noneOf(BadgeType.class);
+        if (reputation >= 100) {
+            badges.add(BadgeType.REPUTATION_100);
+        }
+        if (reputation >= 1000) {
+            badges.add(BadgeType.REPUTATION_1000);
+        }
+        return badges;
     }
 }
