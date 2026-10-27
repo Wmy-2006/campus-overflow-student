@@ -114,4 +114,24 @@ class AnswerAndVoteServiceTest {
         assertThatThrownBy(() -> voteService.cast(ming, TargetType.QUESTION, questionId, 1))
                 .isInstanceOf(BusinessRuleException.class);
     }
+
+    @Test
+    @DisplayName("撤销投票（value=0）回退分数并发布 oldValue=1/newValue=0 的事件")
+    void revokingVoteRevertsScoreAndEmitsEvent() {
+        long answerId = answerService.submit(hong, questionId, "回答正文。");
+        voteService.cast(ming, TargetType.ANSWER, answerId, 1);
+        assertThat(answers.scoreDeltas).containsEntry(answerId, 1);
+
+        voteService.cast(ming, TargetType.ANSWER, answerId, 0);
+        assertThat(answers.scoreDeltas).containsEntry(answerId, 0);
+
+        List<VoteCastEvent> voteEvents = events.ofType(VoteCastEvent.class);
+        VoteCastEvent revoke = voteEvents.get(voteEvents.size() - 1);
+        assertThat(revoke.oldValue()).isEqualTo(1);
+        assertThat(revoke.newValue()).isEqualTo(0);
+        assertThat(revoke.targetAuthorId()).isEqualTo(hong.userId());
+
+        // 本无投票时再撤销：无操作
+        assertThat(voteService.cast(hong, TargetType.ANSWER, answerId, 0).scoreDelta()).isZero();
+    }
 }
