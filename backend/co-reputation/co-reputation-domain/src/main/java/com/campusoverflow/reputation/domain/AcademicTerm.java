@@ -2,6 +2,7 @@ package com.campusoverflow.reputation.domain;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.IsoFields;
 
@@ -15,18 +16,28 @@ public final class AcademicTerm {
     private AcademicTerm() {
     }
 
+    /** 学期键：8–12 月为当年秋季；1 月归入上一年秋季；2–7 月为当年春季。 */
     public static String termKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.termKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.termKey 尚未实现");
+        LocalDate date = at.atZone(CAMPUS_ZONE).toLocalDate();
+        int month = date.getMonthValue();
+        if (month >= 2 && month <= 7) {
+            return date.getYear() + "-SPRING";
+        }
+        if (month >= 8) {
+            return date.getYear() + "-FALL";
+        }
+        return (date.getYear() - 1) + "-FALL";
     }
 
+    /** ISO 周键（ISO-8601 周编号年），如 2026-W41。 */
     public static String weekKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.weekKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.weekKey 尚未实现");
+        LocalDate date = at.atZone(CAMPUS_ZONE).toLocalDate();
+        int week = date.get(IsoFields.WEEK_OF_WEEK_BASED_YEAR);
+        int weekYear = date.get(IsoFields.WEEK_BASED_YEAR);
+        return String.format("%d-W%02d", weekYear, week);
     }
 
     public static String monthKey(Instant at) {
-        // TODO(S3)：实现 AcademicTerm.monthKey——参考领域单元测试与 arc42 文档中的业务规则
-        throw new UnsupportedOperationException("TODO(S3)：AcademicTerm.monthKey 尚未实现");
+        return YearMonth.from(at.atZone(CAMPUS_ZONE)).toString();
     }
 }
