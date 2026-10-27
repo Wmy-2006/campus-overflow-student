@@ -17,9 +17,11 @@ public class AnswerRepositoryAdapter implements AnswerRepository {
 
     @Override
     public Optional<Answer> findById(long id) {
-        return jpa.findById(id).map(e -> Answer.reconstitute(e.getId(), e.getQuestionId(), e.getAuthorId(),
-                new MarkdownBody(e.getBody()), e.getScore(), e.getEndorsedBy(), e.getCreatedAt(), e.getUpdatedAt(),
-                e.getDeletedAt(), e.getVersion()));
+        return jpa.findById(id)
+                .filter(e -> e.getDeletedAt() == null) // T8：软删内容对用例层不可见，与读模型一致
+                .map(e -> Answer.reconstitute(e.getId(), e.getQuestionId(), e.getAuthorId(),
+                        new MarkdownBody(e.getBody()), e.getScore(), e.getEndorsedBy(), e.getCreatedAt(), e.getUpdatedAt(),
+                        e.getDeletedAt(), e.getVersion()));
     }
 
     @Override

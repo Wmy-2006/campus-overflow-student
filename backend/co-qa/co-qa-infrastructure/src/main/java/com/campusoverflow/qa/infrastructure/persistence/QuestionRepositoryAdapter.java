@@ -24,7 +24,9 @@ public class QuestionRepositoryAdapter implements QuestionRepository {
 
     @Override
     public Optional<Question> findById(long id) {
-        return jpa.findById(id).map(QuestionRepositoryAdapter::toDomain);
+        return jpa.findById(id)
+                .filter(e -> e.getDeletedAt() == null) // T8：软删内容对用例层不可见，与读模型一致
+                .map(QuestionRepositoryAdapter::toDomain);
     }
 
     @Override
