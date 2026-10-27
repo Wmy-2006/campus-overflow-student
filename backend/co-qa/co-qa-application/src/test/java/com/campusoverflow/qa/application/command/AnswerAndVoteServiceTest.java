@@ -114,4 +114,19 @@ class AnswerAndVoteServiceTest {
         assertThatThrownBy(() -> voteService.cast(ming, TargetType.QUESTION, questionId, 1))
                 .isInstanceOf(BusinessRuleException.class);
     }
+
+    @Test
+    @DisplayName("T13 验收：投票给问题调整问题分数并发布事件（questionId 透传给声誉）")
+    void voteOnQuestionAdjustsQuestionScoreAndEmitsEvent() {
+        assertThat(voteService.cast(hong, TargetType.QUESTION, questionId, 1).scoreDelta()).isEqualTo(1);
+        assertThat(questions.scoreDeltas).containsEntry(questionId, 1);
+
+        List<VoteCastEvent> voteEvents = events.ofType(VoteCastEvent.class);
+        assertThat(voteEvents).hasSize(1);
+        assertThat(voteEvents.get(0).targetType()).isEqualTo("QUESTION");
+        assertThat(voteEvents.get(0).targetId()).isEqualTo(questionId);
+        assertThat(voteEvents.get(0).questionId()).isEqualTo(questionId);
+        assertThat(voteEvents.get(0).targetAuthorId()).isEqualTo(ming.userId());
+        assertThat(voteEvents.get(0).newValue()).isEqualTo(1);
+    }
 }
